@@ -11,13 +11,13 @@ export const webpack = webpackStream.webpack
 import DefaultRegistery from 'undertaker-registry'
 
 export default class WebpackRegistery extends DefaultRegistery {
-  constructor({prefix, config, htmlFile=true, custom=false, templateValues, path, entryFile, outputPath, port=3000}={}) {
+  constructor({prefix, config, htmlFile=true, configTemplate='base', custom=false, templateValues, path, entryFile, outputPath, port=3000}={}) {
     super()
 
-    if (custom) {
-      config = require(join(__dirname, 'lib', 'webpack.base.js'))({templateValues, webpack, path, htmlFile, entryFile, outputPath, ...config})
+    if (configTemplate) {
+      config = require(join(__dirname, `webpack.${configTemplate}.js`))({templateValues, webpack, path, htmlFile, entryFile, outputPath, ...config})
     } else {
-      config = require(join(__dirname, 'lib', 'webpack.config.js'))({templateValues, webpack, path, htmlFile, entryFile, outputPath, ...config})
+      config = require(join(__dirname, 'webpack.config.js'))({templateValues, webpack, path, htmlFile, entryFile, outputPath, ...config})
     }
 
     Object.assign(this, {prefix, config, templateValues, custom, path, htmlFile, entryFile, outputPath, port})
