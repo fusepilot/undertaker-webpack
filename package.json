@@ -9,7 +9,7 @@
     "test": "mocha --compilers js:babel-core/register -w test/"
   },
   "author": "Michael Delaney <michael@fusepilot.com> (http://fusepilot.com)",
-  "license": "ISC",
+  "license": "MIT",
   "dependencies": {
     "babel-loader": "^6.2.4",
     "babel-plugin-add-module-exports": "^0.1.2",
