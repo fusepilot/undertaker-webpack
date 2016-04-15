@@ -1,68 +1,92 @@
-import { sep, join } from 'path'
-import vfs from 'vinyl-fs'
-import webpackStream from 'gulp-webpack'
-import mustache from 'gulp-mustache'
-import rename from 'gulp-rename'
-import { isString, defaultsDeep } from 'lodash'
-import WebpackDevServer from 'webpack-dev-server'
+const { sep, join } = require('path')
+const vfs = require('vinyl-fs')
+const webpackStream = require('gulp-webpack')
+const mustache = require('gulp-mustache')
+const rename = require('gulp-rename')
+const { isString, defaultsDeep } = require('lodash')
+const WebpackDevServer = require('webpack-dev-server')
 
-export const webpack = webpackStream.webpack
+const webpack = webpackStream.webpack
+const DefaultRegistery = require('undertaker-registry')
 
-import DefaultRegistery from 'undertaker-registry'
+function skip(condition, fn){
+  if (!condition) {
+    return fn
+  }
 
-export default class WebpackRegistery extends DefaultRegistery {
+  function skipped(cb){
+    cb()
+  }
+
+  let displayName
+  if (isString(fn)) {
+    displayName = fn
+  } else {
+    displayName = (fn.name || fn.displayName)
+  }
+
+  skipped.displayName = `${displayName} (skipped)`
+  return skipped
+}
+
+module.exports = class WebpackRegistery extends DefaultRegistery {
   constructor({prefix, config, htmlFile=true, configTemplate='base', custom=false, templateValues, path, entryFile, outputPath, port=3000}={}) {
     super()
 
+    let args = Object.assign({templateValues, webpack, path, htmlFile, entryFile, outputPath}, config)
+
     if (configTemplate) {
-      config = require(join(__dirname, `webpack.${configTemplate}.js`))({templateValues, webpack, path, htmlFile, entryFile, outputPath, ...config})
+      config = require(join(__dirname, `webpack.${configTemplate}.js`))(args)
     } else {
-      config = require(join(__dirname, 'webpack.config.js'))({templateValues, webpack, path, htmlFile, entryFile, outputPath, ...config})
+      config = require(join(__dirname, 'webpack.config.js'))(args)
     }
 
     Object.assign(this, {prefix, config, templateValues, custom, path, htmlFile, entryFile, outputPath, port})
   }
 
   init(taker) {
-    taker.task(`${this.prefix}:webpack`, () => {
-      return vfs.src(this.entryFile)
-        .pipe(webpackStream(this.config))
-        .pipe(vfs.dest(this.outputPath))
-    })
+    ['', ':production'].map((env) => {
+      const config = this.config
 
-    if (isString(this.htmlFile)) {
-      taker.task(`${this.prefix}:html`, () => {
+      if (env != ':production') {
+        config.watch = true
+      }
+
+      taker.task(`${this.prefix}:webpack${env}`, () => {
+        return vfs.src(this.entryFile)
+          .pipe(webpackStream(config))
+          .pipe(vfs.dest(this.outputPath))
+      })
+
+      taker.task(`${this.prefix}:html${env}`, () => {
         return vfs.src(this.htmlFile)
-          .pipe(mustache({
-            bundlePath: this.config.output.filename,
+          .pipe(mustache(Object.assign({
+            bundlePath: config.output.filename,
             host: `http://localhost:${this.port}`,
-            ...this.templateValues,
-          }))
+          }, this.templateValues)))
           .pipe(rename('index.html'))
           .pipe(vfs.dest(this.outputPath))
       })
-    }
 
-    taker.task(`${this.prefix}:server`, () => {
-      const webpackCompiler = webpack(this.config)
+      taker.task(`${this.prefix}:server${env}`, () => {
+        const webpackCompiler = webpack(config)
 
-      new WebpackDevServer(webpackCompiler, {
-        contentBase: this.config.output.path,
-        hot: true,
-        quiet: true,
-      }).listen(this.port, 'localhost', (err) => {
-        if (err) {
-          console.error(err)
-        } else {
-          console.log(`🌎  http://localhost:${this.port}`);
-        }
+        new WebpackDevServer(webpackCompiler, {
+          contentBase: config.output.path,
+          hot: true,
+          quiet: true,
+        }).listen(this.port, 'localhost', (err) => {
+          if (err) {
+            console.error(err)
+          } else {
+            console.log(`🌎  http://localhost:${this.port}`)
+          }
+        })
       })
-    })
 
-    if (isString(this.htmlFile)) {
-      return taker.task(this.prefix, taker.parallel(`${this.prefix}:webpack`, `${this.prefix}:html`))
-    } else {
-      return taker.task(this.prefix, taker.series(`${this.prefix}:webpack`))
-    }
+      return taker.task(`${this.prefix}${env}`, taker.parallel(`${this.prefix}:webpack${env}`, skip(!isString(this.htmlFile), `${this.prefix}:html${env}`)))
+    })
   }
 }
+
+module.exports.webpack = webpack

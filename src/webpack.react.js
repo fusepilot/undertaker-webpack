@@ -1,10 +1,13 @@
-import { join } from 'path'
-import HTMLWebpackPlugin from 'html-webpack-plugin'
-import ExtractTextPlugin from 'extract-text-webpack-plugin'
-import { defaultsDeep, isBoolean } from 'lodash'
-import merge from 'deepmerge'
+const { join } = require('path')
+const HTMLWebpackPlugin = require('html-webpack-plugin')
+const ExtractTextPlugin = require('extract-text-webpack-plugin')
+const { defaultsDeep, isBoolean, omit } = require('lodash')
+const merge = require('deepmerge')
 
-export default function({templateValues, webpack, resolveLoader={}, entry=[], output={}, resolve={}, plugins=[], loaders=[], path, htmlFile=true, entryFile, outputPath, ...config}) {
+module.exports = function(options) {
+  let { templateValues, webpack, resolveLoader={}, entry=[], output={}, resolve={}, plugins=[], loaders=[], path, htmlFile=true, entryFile, outputPath } = options
+  const config = omit(options, ['templateValues', 'webpack', 'resolveLoader', 'entry', 'output', 'resolve', 'plugins', 'loaders', 'path', 'htmlFile', 'entryFile', 'outputPath'])
+
   entry = merge([
     'babel-polyfill',
     entryFile,
@@ -45,8 +48,7 @@ export default function({templateValues, webpack, resolveLoader={}, entry=[], ou
         name: '[name]-[hash:6].[ext]',
       },
     },
-    ...loaders,
-  ]
+  ].concat(loaders)
 
   if (process.env.NODE_ENV == 'production') {
     plugins = [
@@ -58,34 +60,29 @@ export default function({templateValues, webpack, resolveLoader={}, entry=[], ou
           screw_ie8: true,
         },
       }),
-      ...plugins,
-    ]
+    ].concat(plugins)
   } else {
     config.devtool = 'eval'
     config.debug = true
     entry = [
       'webpack-dev-server/client?http://localhost:3000',
       'webpack/hot/only-dev-server',
-      ...entry,
-    ]
+    ].concat(entry)
 
     plugins = [
       new webpack.WatchIgnorePlugin([outputPath]),
       new webpack.HotModuleReplacementPlugin(),
       new webpack.NoErrorsPlugin(),
-      ...plugins,
-    ]
+    ].concat(plugins)
   }
 
-  plugins = [
-    ...plugins,
-
+  plugins = plugins.concat([
     new webpack.DefinePlugin({
       'process.env': {
         'NODE_ENV': JSON.stringify(process.env.NODE_ENV),
       },
     }),
-  ]
+  ])
 
   if (isBoolean(htmlFile)) {
     plugins = [
@@ -95,11 +92,10 @@ export default function({templateValues, webpack, resolveLoader={}, entry=[], ou
         // inject: 'body',
         // filename: 'index.html',
       }),
-      ...plugins,
-    ]
+    ].concat(plugins)
   }
 
-  return {
+  return Object.assign({
     entry,
     output,
     resolve,
@@ -108,6 +104,5 @@ export default function({templateValues, webpack, resolveLoader={}, entry=[], ou
       loaders,
     },
     plugins,
-    ...config,
-  }
+  }, config)
 }

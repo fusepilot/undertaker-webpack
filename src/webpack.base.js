@@ -1,10 +1,13 @@
-import { join } from 'path'
-import HTMLWebpackPlugin from 'html-webpack-plugin'
-import ExtractTextPlugin from 'extract-text-webpack-plugin'
-import { defaultsDeep, isBoolean } from 'lodash'
-import merge from 'deepmerge'
+const { join } = require('path')
+const HTMLWebpackPlugin = require('html-webpack-plugin')
+const ExtractTextPlugin = require('extract-text-webpack-plugin')
+const { defaultsDeep, isBoolean, omit } = require('lodash')
+const merge = require('deepmerge')
 
-export default function({templateValues, webpack, resolveLoader={}, entry=[], output={}, resolve={}, plugins=[], loaders=[], path, htmlFile=true, entryFile, outputPath, ...config}) {
+module.exports = function(options) {
+  let { templateValues, webpack, resolveLoader={}, entry=[], output={}, resolve={}, plugins=[], loaders=[], path, htmlFile=true, entryFile, outputPath } = options
+  const config = omit(options, ['templateValues', 'webpack', 'resolveLoader', 'entry', 'output', 'resolve', 'plugins', 'loaders', 'path', 'htmlFile', 'entryFile', 'outputPath'])
+
   entry = merge([
     entryFile,
   ], entry)
@@ -25,34 +28,25 @@ export default function({templateValues, webpack, resolveLoader={}, entry=[], ou
     modulesDirectories: [join(__dirname, '..', 'node_modules'), join(process.cwd(), 'node_modules')],
   }, resolveLoader)
 
-
-  loaders = [
-    ...loaders,
-  ]
+  loaders = loaders.concat([])
 
   if (process.env.NODE_ENV == 'production') {
-    plugins = [
-      ...plugins,
-    ]
+    plugins = plugins.concat([])
   } else {
     config.devtool = 'eval'
     config.debug = true
-    entry = [
-      ...entry,
-    ]
+    entry = entry.concat([])
   }
 
-  plugins = [
-    ...plugins,
-
+  plugins = plugins.concat([
     new webpack.DefinePlugin({
       'process.env': {
         'NODE_ENV': JSON.stringify(process.env.NODE_ENV),
       },
     }),
-  ]
+  ])
 
-  return {
+  return Object.assign({
     entry,
     output,
     resolve,
@@ -61,6 +55,5 @@ export default function({templateValues, webpack, resolveLoader={}, entry=[], ou
       loaders,
     },
     plugins,
-    ...config,
-  }
+  }, config)
 }
